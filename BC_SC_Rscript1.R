@@ -126,10 +126,27 @@ efashape <- efourier(BC_outlines, nb.h = 11, norm = FALSE)
 pcashape <- PCA(efashape) 
 scree_plot(pcashape, nax =1:10) # PC1-3 gives over 95% of cum variance in the data, PC1 = 79% of variance
 
-gg <- PCcontrib(pcashape, nax = 1:3)
-gg$gg + 
-  geom_polygon(fill="slategrey", col="black") + 
-  ggtitle("Shapes along PC1-3") # PC1 = asymmetry with base heavy, PC2 = wide to elongated, PC3 - wide to elongated with base heavy
+
+plot.new()
+gg <- PCcontrib(pcashape, nax = 1:3, plot = FALSE)
+par(mfrow = c(2,2))
+plot_PCA(pcashape, axes = c(1,2), morphospace_position = "range", zoom = 1, chull = FALSE, eigen = FALSE, legend = FALSE, palette=pal_manual(c("slategrey"))) %>% layer_points(cex = 1)  
+plot_PCA(pcashape, axes = c(1,3),  morphospace_position = "range", zoom = 1, chull = FALSE, eigen = FALSE, legend = FALSE, palette=pal_manual(c("slategrey"))) %>% layer_points(cex = 1)  
+plot_PCA(pcashape, axes = c(2,3), morphospace_position = "range", zoom = 1, chull = FALSE,  eigen = FALSE, legend = FALSE, palette=pal_manual(c("slategrey"))) %>% layer_points(cex = 1) 
+
+vp.BottomRight <- viewport(height=unit(.5, "npc"), width=unit(0.5, "npc"), 
+                           just=c("left","top"), 
+                           y=0.5, x=0.5)
+GG <- gg$gg + 
+  geom_polygon(fill="white", col="black") + 
+  theme_classic() +
+  theme(axis.text.x=element_blank(), #remove x axis labels
+        axis.ticks.x=element_blank(), #remove x axis ticks
+        axis.text.y=element_blank(),  #remove y axis labels
+        axis.ticks.y=element_blank(),  #remove y axis ticks
+        axis.line.x = element_blank(),
+        axis.line.y =element_blank())
+print(GG, vp = vp.BottomRight)  
 
 ### Identify and remove outliers #### 
 
