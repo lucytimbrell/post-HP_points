@@ -25,6 +25,7 @@ library("tidyverse")
 library("ggplot2")
 library("ggpubr")
 library("gridExtra")
+library("grid")
 
 #### Data import and preparation ####
 
@@ -41,6 +42,11 @@ database$Raw.materials <- as.factor(database$Raw.materials)
 database$Raw.materials.2 <- as.factor(database$Raw.materials.2)
 database$Knapping.modality <- as.factor(database$Knapping.modality)
 database$New.strat <- as.factor(database$New.strat)
+database$Proximal.dorsal.preparation <- as.factor(database$Proximal.dorsal.preparation)
+database$Ridges.and.Nodes <- as.factor(database$Ridges.and.Nodes)
+database$Dorsal.scar.pattern <- as.factor(database$Dorsal.scar.pattern)
+database$Angle <- as.factor(database$Angle)
+database$Orientation.of.the.tip <- as.factor(database$Orientation.of.the.tip)
 
 saveRDS(tpslines, file =  "tpslines.rds")
 saveRDS(database, file =  "database.rds")
@@ -62,24 +68,23 @@ shapenorm <- shape %>%
   coo_slidedirection("right") %>% 
   coo_untiltx() %>% 
   coo_close() %>% 
-  coo_aligncalliper()
+  coo_aligncalliper() 
 
 shapenorm1 <- def_ldk(shapenorm, 1) # add new landmarks to tip and base for additional orientation
 shapenorm2 <- coo_untiltx(shapenorm1, ldk = 1) # option 2 - reduce tilt according to tip landmark - WE USE THIS
-
-shapenorm3 <- coo_rotate(shapenorm2, theta = (pi/2)*3) # rotate so point is facing up
+shapenorm3 <- coo_rotate(shapenorm2, theta = (pi/2)*3) # rotate so points are facing up
 shapenorm4 <- coo_smooth(shapenorm3, 10)
 
 # Artefact-specific processing
-coo_plot(shapenorm3[14], col = "grey", centroid = TRUE, main = "Artefact 2297") # this outline needs smoothing
+coo_plot(shapenorm3[14], col = "grey", centroid = TRUE, main = "Artefact 2297") # this outline needs further smoothing
 shapenorm4[14] <- coo_smooth(shapenorm4[14], 1000)  
 coo_plot(shapenorm4[14], col = "grey", centroid = TRUE, main = "Artefact 2297")
 
-coo_plot(shapenorm3[51], col = "grey", centroid = TRUE, main = "Artefact P121") # this outline needs smoothing
+coo_plot(shapenorm3[51], col = "grey", centroid = TRUE, main = "Artefact P121") # this outline needs futher smoothing
 shapenorm4[51] <- coo_smooth(shapenorm4[51], 500)  
 coo_plot(shapenorm4[51], col = "grey", centroid = TRUE, main = "Artefact P121")
 
-stack(shapenorm4, title = "Stack:: Normalised Outlines")
+stack(shapenorm4, title = "Stack: Normalised Outlines")
 panel(shapenorm4, main = "Scaled outline data", names = TRUE)
 
 saveRDS(shapenorm4, file = "Normalised_outlinesBCSC.rds") # save normalised and transformed landmarks
@@ -89,15 +94,6 @@ saveRDS(shapenorm4, file = "Normalised_outlinesBCSC.rds") # save normalised and 
 outlinedata <- import("Normalised_outlinesBCSC.rds")
 database <- import("database.rds")  
 
-## Calculate mean number of points representing outlines
-meanpoints <- matrix(0, nrow = length(outlinedata), ncol = 1)
-for(i in 1:length(outlinedata)){
-  artefact <- outlinedata[i]
-  nlandmarks <- length(unlist(artefact))/2
-  meanpoints[i,] <- nlandmarks
-}
-
-mean(meanpoints)
 
 ## Seperate Border Cave and Sibudu 
 BC_outlines <- Momocs:: filter(outlinedata, Site=="Border Cave")
@@ -107,25 +103,42 @@ BC_outlines$fac <- droplevels(BC_outlines$fac)
 SC_outlines$fac <- droplevels(SC_outlines$fac)
 
 ############## BORDER CAVE ONLY ############
-panel(BC_outlines, main = "Border Cave", names = TRUE)
+panel(BC_outlines, main = "Border Cave", fac ='Orientation.of.the.tip', names = TRUE)
+
+## Calculate mean number of points representing outlines
+meanpoints <- matrix(0, nrow = length(BC_outlines), ncol = 1)
+for(i in 1:length(BC_outlines)){
+  artefact <- BC_outlines[i]
+  nlandmarks <- length(unlist(artefact))/2
+  meanpoints[i,] <- nlandmarks
+}
+
+mean(meanpoints)
 
 # Data tidying
 BC_outlines$fac$Raw.materials.2[BC_outlines$fac$Raw.materials.2=="other "] <- "other"
-table(BC_outlines$fac$Raw.materials.2) # priors
+table(BC_outlines$fac$Raw.materials.2) 
 BC_outlines$fac$Raw.materials.2 <- droplevels(BC_outlines$fac$Raw.materials.2)
+table(BC_outlines$fac$Raw.materials.2) 
+
+BC_outlines$fac$Proximal.dorsal.preparation[BC_outlines$fac$Proximal.dorsal.preparation==""] <- "N"
+table(BC_outlines$fac$Proximal.dorsal.preparation) 
+BC_outlines$fac$Proximal.dorsal.preparation <- droplevels(BC_outlines$fac$Proximal.dorsal.preparation)
+table(BC_outlines$fac$Proximal.dorsal.preparation) 
 
 #### EFA ####
 
 calibrate_harmonicpower_efourier(BC_outlines, nb.h = 20, plot = FALSE) # 11 harmonics
-calibrate_reconstructions_efourier(BC_outlines, range = 1:20)
+calibrate_reconstructions_efourier(BC_outlines, range = 1:11)
 
 efashape <- efourier(BC_outlines, nb.h = 11, norm = FALSE)
 
 ####  PCA  ####
 
 pcashape <- PCA(efashape) 
-scree_plot(pcashape, nax =1:10) # PC1-3 gives over 95% of cum variance in the data, PC1 = 79% of variance
 
+# Plot 
+scree_plot(pcashape, nax =1:10) # PC1-3 gives over 95% of cum variance in the data, PC1 = 79% of variance
 
 plot.new()
 gg <- PCcontrib(pcashape, nax = 1:3, plot = FALSE)
@@ -148,6 +161,7 @@ GG <- gg$gg +
         axis.line.y =element_blank())
 print(GG, vp = vp.BottomRight)  
 
+
 ### Identify and remove outliers #### 
 
 outliers <- which_out(efashape, conf = 0.01) # 0 outliers
@@ -160,18 +174,13 @@ for(i in 1:length(outliers)){
 }
 
 
-# efashape1 <- Momocs::slice(efashape, -outliers) # to remove them  
-# pcashape1 <- PCA(efashape1) # replace with efashape1 if want removed outliers
+# efashape <- Momocs::slice(efashape, -outliers) # to remove them  
+# pcashape <- PCA(efashape) 
 
-# BC_outlines <- Momocs::slice(BC_outlines, -outliers) # to remove them  
-# scree_plot(pcashape1, nax =1:10) # PC1-3 gives over 95% of cum variance in the data, PC1 = 76% of variance
-
-# gg <- PCcontrib(pcashape1, nax = 1:4)
-# gg$gg + 
-#  geom_polygon(fill="slategrey", col="black") + 
-#  ggtitle("Shapes along PC1-4") # PC1 = asymmetry with base heavy, PC2 = wide to elongated, PC3 - wide to elongated with base heavy
 
 #### Size analysis ####
+
+## Build new database with PCs and centroid size
 centroidsize <- as_tibble(coo_centsize(BC_outlines))
 centroidsize <- rename(centroidsize, CS = "value")
 
@@ -179,33 +188,28 @@ pcascores <- as_tibble(pcashape$x)
 databasedata <- cbind(BC_outlines$fac, centroidsize, pcascores) # new database with PCs and centroid size
 
 ## Length
-p1 <- ggplot(databasedata, aes(Length, CS)) + 
-  geom_point(size = 2, pch = 16, alpha = 0.4) + 
-  geom_smooth(method = lm, se = FALSE) + 
-  theme(text = element_text(size = 8), axis.text = element_text(size = 8)) + 
-  ylab("Centroid size")
+p1 <- ggscatter(databasedata, x = "Length", y = "CS", 
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = TRUE, cor.method = "pearson",
+          xlab = "Length (mm)", ylab = "Centroid size")
+
 
 cor.test(databasedata$CS, databasedata$Length)
-
 summary(lm(Length~CS, data = databasedata))
 
 ## Width
-p2 <- ggplot(databasedata, aes(Width, CS)) + 
-  geom_point(size = 2, pch = 16, alpha = 0.4) + 
-  geom_smooth(method = lm, se = FALSE) + 
-  theme(text = element_text(size = 8), axis.text = element_text(size = 8)) + 
-  ylab("Centroid size")
-
+p2 <- ggscatter(databasedata, x = "Width", y = "CS", 
+                add = "reg.line", conf.int = TRUE, 
+                cor.coef = TRUE, cor.method = "pearson",
+                xlab = "Width (mm)", ylab = "Centroid size")
 cor.test(databasedata$CS, databasedata$Width)
-
 summary(lm(Width~CS, data = databasedata))
 
 ## PC1
-p3 <- ggplot(databasedata, aes(PC1, CS)) + 
-  geom_point(size = 2, pch = 16, alpha = 0.4) + 
-  geom_smooth(method = lm, se = FALSE) + 
-  theme(text = element_text(size = 8), axis.text = element_text(size = 8)) + 
-  ylab("Centroid size")
+p3 <- ggscatter(databasedata, x = "PC1", y = "CS", 
+                add = "reg.line", conf.int = TRUE, 
+                cor.coef = TRUE, cor.method = "pearson",
+                xlab = "PC1", ylab = "Centroid size")
 
 cor.test(databasedata$PC1, databasedata$CS)
 cor(databasedata$PC1, databasedata$CS)
@@ -213,11 +217,10 @@ cor(databasedata$PC1, databasedata$CS)
 summary(lm(CS~PC1, data = databasedata))
 
 ## PC2
-p4 <- ggplot(databasedata, aes(PC2, CS)) + 
-  geom_point(size = 2, pch = 16, alpha = 0.4) + 
-  geom_smooth(method = lm, se = FALSE) + 
-  theme(text = element_text(size = 8), axis.text = element_text(size = 8)) + 
-  ylab("Centroid size")
+p4 <- ggscatter(databasedata, x = "PC2", y = "CS", 
+                add = "reg.line", conf.int = TRUE, 
+                cor.coef = TRUE, cor.method = "pearson",
+                xlab = "PC2", ylab = "Centroid size")
 
 cor.test(databasedata$PC2, databasedata$CS)
 cor(databasedata$PC2, databasedata$CS)
@@ -225,11 +228,10 @@ cor(databasedata$PC2, databasedata$CS)
 summary(lm(CS~PC2, data = databasedata))
 
 ## PC3
-p5 <- ggplot(databasedata, aes(PC3, CS)) + 
-  geom_point(size = 2, pch = 16, alpha = 0.4) + 
-  geom_smooth(method = lm, se = FALSE) + 
-  theme(text = element_text(size = 8), axis.text = element_text(size = 8)) + 
-  ylab("Centroid size")
+p5 <- ggscatter(databasedata, x = "PC3", y = "CS", 
+                add = "reg.line", conf.int = TRUE, 
+                cor.coef = TRUE, cor.method = "pearson",
+                xlab = "PC3", ylab = "Centroid size")
 
 cor.test(databasedata$PC3, databasedata$CS)
 cor(databasedata$PC3, databasedata$CS)
@@ -245,21 +247,22 @@ plot.new()
 par(mfrow = c(2,2))
 plot_PCA(pcashape, axes = c(1,2), ~ Member, morphospace_position = "range_axes", zoom = 1, chull = FALSE, palette=pal_manual(c("indianred3", "forestgreen", "royalblue2")), eigen = FALSE, legend = FALSE) %>% layer_points(cex = 1)  
 plot_PCA(pcashape, axes = c(1,3), ~ Member, morphospace_position = "range_axes", zoom = 1, chull = FALSE,palette=pal_manual(c("indianred3", "forestgreen", "royalblue2")), eigen = FALSE, legend = FALSE) %>% layer_points(cex = 1)  
-plot_PCA(pcashape, axes = c(2,3), ~ Member, morphospace_position = "range", zoom = 1, chull = FALSE, palette=pal_manual(c("indianred3", "forestgreen", "royalblue2")), eigen = FALSE, legend = FALSE) %>% layer_points(cex = 1) 
+plot_PCA(pcashape, axes = c(2,3), ~ Member, morphospace_position = "range_axes", zoom = 1, chull = FALSE, palette=pal_manual(c("indianred3", "forestgreen", "royalblue2")), eigen = FALSE, legend = FALSE) %>% layer_points(cex = 1) 
 
 vp.BottomRight <- viewport(height=unit(.5, "npc"), width=unit(0.5, "npc"), 
                            just=c("left","top"), 
                            y=0.5, x=0.5)
 p1 <- boxplot(pcashape, ~Member, nax = 1:3, col = c("indianred3", "forestgreen", "royalblue2"))
+p1 <- p1  + theme_classic2()
 print(p1, vp = vp.BottomRight)  
 
 ## New chronology
 plot.new()
 p1 <- boxplot(pcashape, ~ Relative.stratigraphy, nax = 1:3, lex.order = FALSE)
-p1 <- p1 + ggtitle("Relative stratigraphy")
+p1 <- p1 + ggtitle("Relative stratigraphy")+ theme_classic2()
 
 p2 <- boxplot(pcashape, ~ New.strat, nax = 1:3, lex.order = FALSE)
-p2 <- p2 + ggtitle("New layer groups")
+p2 <- p2 + ggtitle("Allostratrigraphic units") + theme_classic2()
 ggarrange(p1, p2, nrow = 2)
 
 ## Reduction method
@@ -273,30 +276,70 @@ vp.BottomRight <- viewport(height=unit(.5, "npc"), width=unit(0.5, "npc"),
                            just=c("left","top"), 
                            y=0.5, x=0.5)
 p1 <- boxplot(pcashape, ~Knapping.modality, nax = 1:3)
-p1 <- theme_bw()
+p1 <- p1  + theme_classic2()
 print(p1, vp = vp.BottomRight) 
 
-## Reduction method
+## Raw.materials 
 plot.new()
 par(mfrow = c(2,2))
 plot_PCA(pcashape, axes = c(1,2), ~ Raw.materials, morphospace_position = "range_axes", zoom = 1, chull = FALSE, palette=pal_manual(c("indianred3", "yellow4", "springgreen2", "deepskyblue2", "mediumorchid1")), eigen = FALSE, legend = FALSE) %>% layer_points(cex = 1)  
-plot_PCA(pcashape, axes = c(1,3), ~ Knapping.modality, morphospace_position = "range_axes", zoom = 1, chull = FALSE,palette=pal_manual(c("indianred3", "yellow4", "springgreen2", "deepskyblue2", "mediumorchid1")), eigen = FALSE, legend = FALSE) %>% layer_points(cex = 1)  
-plot_PCA(pcashape, axes = c(2,3), ~ Knapping.modality, morphospace_position = "range_axes", zoom = 1, chull = FALSE, palette=pal_manual(c("indianred3", "yellow4", "springgreen2", "deepskyblue2", "mediumorchid1")), eigen = FALSE, legend = FALSE) %>% layer_points(cex = 1) 
+plot_PCA(pcashape, axes = c(1,3), ~ Raw.materials, morphospace_position = "range_axes", zoom = 1, chull = FALSE,palette=pal_manual(c("indianred3", "yellow4", "springgreen2", "deepskyblue2", "mediumorchid1")), eigen = FALSE, legend = FALSE) %>% layer_points(cex = 1)  
+plot_PCA(pcashape, axes = c(2,3), ~ Raw.materials, morphospace_position = "range_axes", zoom = 1, chull = FALSE, palette=pal_manual(c("indianred3", "yellow4", "springgreen2", "deepskyblue2", "mediumorchid1")), eigen = FALSE, legend = FALSE) %>% layer_points(cex = 1) 
 
-
-## Number of scars
-boxplot(pcashape, ~ Number.of.scars, nax = 1:3)  #  No difference in mean along PC1 between the two post-HP members, 3BS is different 
-
+## Number of scars 
 plot.new()
-plot_PCA(pcashape, axes = c(1,2), ~ Number.of.scars, morphospace_position = "range", zoom = 2 , chull = FALSE, palette=pal_manual(c("indianred3", "forestgreen", "royalblue2"))) %>% layer_points(cex = 1.2, pch = 20) 
-plot_PCA(pcashape, axes = c(1,3), ~ Number.of.scars, morphospace_position = "range", zoom = 2, chull = FALSE, palette=pal_manual(c("indianred3", "forestgreen", "royalblue2"))) %>% layer_points(cex = 1.2, pch = 20) 
+par(mfrow = c(2,2))
+plot_PCA(pcashape, axes = c(1,2), ~ Number.of.scars, morphospace_position = "range_axes", zoom = 1 , chull = FALSE, palette=pal_manual(c("indianred3", "yellow4", "springgreen2", "deepskyblue2", "mediumorchid1")), eigen = FALSE) %>% layer_points(cex = 1.2, pch = 20) 
+plot_PCA(pcashape, axes = c(1,3), ~ Number.of.scars, morphospace_position = "range_axes", zoom = 1, chull = FALSE, palette=pal_manual(c("indianred3", "yellow4", "springgreen2", "deepskyblue2", "mediumorchid1")), eigen = FALSE) %>% layer_points(cex = 1.2, pch = 20) 
+plot_PCA(pcashape, axes = c(2,3), ~ Number.of.scars, morphospace_position = "range_axes", zoom = 1, chull = FALSE, palette=pal_manual(c("indianred3", "yellow4", "springgreen2", "deepskyblue2", "mediumorchid1")), eigen = FALSE) %>% layer_points(cex = 1.2, pch = 20) 
+p1 <- boxplot(pcashape, ~Number.of.scars, nax = 1:3)
+p1 <- p1  + theme_classic2()
+print(p1, vp = vp.BottomRight) 
 
 ## Orientation of tip
-boxplot(pcashape, ~ Orientation.of.the.tip, nax = 1:3)  #  No difference in mean along PC1 between the two post-HP members, 3BS is different 
-
 plot.new()
-plot_PCA(pcashape, axes = c(1,2), ~ Orientation.of.the.tip, morphospace_position = "range", zoom = 2 , chull = FALSE, palette=pal_manual(c("indianred3", "forestgreen", "royalblue2"))) %>% layer_points(cex = 1.2, pch = 20) 
-plot_PCA(pcashape1, axes = c(1,3), ~ Orientation.of.the.tip, morphospace_position = "range_axes", zoom = 1, chull = FALSE, palette=pal_manual(c("indianred3", "forestgreen", "royalblue2"))) %>% layer_points(cex = 1.2, pch = 20) %>% layer_ellipses(conf = 0.95)
+par(mfrow = c(2,2))
+plot_PCA(pcashape, axes = c(1,2), ~ Orientation.of.the.tip, morphospace_position = "range_axes", zoom = 1, chull = FALSE, palette=pal_manual(c("indianred3", "forestgreen", "royalblue2")), eigen = FALSE, legend = FALSE) %>% layer_points(cex = 1)  
+plot_PCA(pcashape, axes = c(1,3), ~ Orientation.of.the.tip, morphospace_position = "range_axes", zoom = 1, chull = FALSE,palette=pal_manual(c("indianred3", "forestgreen", "royalblue2")), eigen = FALSE, legend = FALSE) %>% layer_points(cex = 1)  
+plot_PCA(pcashape, axes = c(2,3), ~ Orientation.of.the.tip, morphospace_position = "range_axes", zoom = 1, chull = FALSE, palette=pal_manual(c("indianred3", "forestgreen", "royalblue2")), eigen = FALSE, legend = FALSE) %>% layer_points(cex = 1) 
+
+vp.BottomRight <- viewport(height=unit(.5, "npc"), width=unit(0.5, "npc"), 
+                           just=c("left","top"), 
+                           y=0.5, x=0.5)
+p1 <- boxplot(pcashape, ~Orientation.of.the.tip, nax = 1:3)
+p1 <- p1  + theme_classic2()
+print(p1, vp = vp.BottomRight) 
+
+## PDP
+plot.new()
+par(mfrow = c(2,2))
+plot_PCA(pcashape, axes = c(1,2), ~ Proximal.dorsal.preparation, morphospace_position = "range_axes", zoom = 1 , chull = FALSE, palette=pal_manual(c("indianred3", "royalblue2")), eigen = FALSE) %>% layer_points(cex = 1.2, pch = 20) 
+plot_PCA(pcashape, axes = c(1,3), ~ Proximal.dorsal.preparation, morphospace_position = "range_axes", zoom = 1 , chull = FALSE, palette=pal_manual(c("indianred3", "royalblue2")), eigen = FALSE) %>% layer_points(cex = 1.2, pch = 20) 
+plot_PCA(pcashape, axes = c(2,3), ~ Proximal.dorsal.preparation, morphospace_position = "range_axes", zoom = 1 , chull = FALSE, palette=pal_manual(c("indianred3", "royalblue2")), eigen = FALSE) %>% layer_points(cex = 1.2, pch = 20) 
+p1 <- boxplot(pcashape, ~Proximal.dorsal.preparation, nax = 1:3)
+p1 <- p1  + theme_classic2()
+print(p1, vp = vp.BottomRight) 
+
+## Ridges and nodes/dorsal scar pattern
+plot.new()
+par(mfrow = c(1,2))
+p1 <- boxplot(pcashape, ~Ridges.and.Nodes, nax = 1:3)
+p1 <- p1  + theme_classic2()
+
+p2 <- boxplot(pcashape, ~Dorsal.scar.pattern, nax = 1:3)
+p2 <- p2  + theme_classic2()
+
+ggarrange(p1, p2, ncol=1)
+
+## Angle
+plot.new()
+par(mfrow = c(2,2))
+plot_PCA(pcashape, axes = c(1,2), ~ Angle, morphospace_position = "range_axes", zoom = 1 , chull = FALSE, palette=pal_manual(c("indianred3", "yellow4", "springgreen2", "deepskyblue2", "mediumorchid1")), eigen = FALSE, legend = FALSE) %>% layer_points(cex = 1.2, pch = 20) 
+plot_PCA(pcashape, axes = c(1,3), ~ Angle, morphospace_position = "range_axes", zoom = 1 , chull = FALSE, palette=pal_manual(c("indianred3", "yellow4", "springgreen2", "deepskyblue2", "mediumorchid1")), eigen = FALSE, legend = FALSE) %>% layer_points(cex = 1.2, pch = 20) 
+plot_PCA(pcashape, axes = c(2,3), ~ Angle, morphospace_position = "range_axes", zoom = 1 , chull = FALSE, palette=pal_manual(c("indianred3", "yellow4", "springgreen2", "deepskyblue2", "mediumorchid1")), eigen = FALSE, legend = FALSE) %>% layer_points(cex = 1.2, pch = 20) 
+p1 <- boxplot(pcashape, ~Angle, nax = 1:3)
+p1 <- p1  + theme_classic2()
+print(p1, vp = vp.BottomRight)
 
 #### Discriminant analysis ####
 
@@ -324,7 +367,6 @@ dashape95 <- LDA(pcashape, ~New.strat, prior = c(33, 2, 6, 2, 7, 4)/nrow(databas
 dashape95$CV.correct
 dashape95$CV.ce
 
-
 ## Raw material
 table(databasedata$Raw.materials) # priors
 
@@ -341,13 +383,13 @@ dashape95$CV.ce
 ## Reduction 
 table(databasedata$Knapping.modality) # priors
 
-dashapefc <- LDA(efashape, ~Knapping.modality, prior = c(29,10,6,1,8)/nrow(databasedata), cv = TRUE) # Fourier coefficient (raw data)
+dashapefc <- LDA(efashape, ~Knapping.modality, prior = c(18,8,11,15,2)/nrow(databasedata), cv = TRUE) # Fourier coefficient (raw data)
 dashapefc$CV.correct
 dashapefc$CV.ce
 
 plot_LDA(dashapefc, axes = c(1,2) , zoom = 1, chull = FALSE, eigen = FALSE, legend = TRUE, palette = col_summer2) %>% layer_points(cex = 1) %>% layer_morphospace_LDA(position = "range")
 
-dashape95 <- LDA(pcashape, ~Knapping.modality,  prior = c(29,10,6,1,8)/nrow(databasedata), retain = 0.95, cv = TRUE) # 95% cum var PC scores
+dashape95 <- LDA(pcashape, ~Knapping.modality,  prior = c(18,8,11,15,2)/nrow(databasedata), retain = 0.95, cv = TRUE) # 95% cum var PC scores
 dashape95$CV.correct
 dashape95$CV.ce
 
@@ -364,9 +406,85 @@ dashape95 <- LDA(pcashape, ~Number.of.scars, prior = c(11,5,2,5,31)/nrow(databas
 dashape95$CV.correct
 dashape95$CV.ce
 
+## Orientation of tip
+table(databasedata$Orientation.of.the.tip) # priors
+
+dashapefc <- LDA(efashape, ~Orientation.of.the.tip, prior = c(34, 12, 8)/nrow(databasedata), cv = TRUE) # Fourier coefficient (raw data)
+dashapefc$CV.correct
+dashapefc$CV.ce
+
+plot_LDA(dashapefc, axes = c(1,2) , zoom = 2, chull = FALSE) %>% layer_points(cex = 1) %>% layer_morphospace_LDA(position = "range")
+
+dashape95 <- LDA(pcashape, ~Orientation.of.the.tip, prior = c(34, 12, 8)/nrow(databasedata), cv = TRUE, retain = 0.95) # 95% cum var PC scores
+dashape95$CV.correct
+dashape95$CV.ce
+
+plot_LDA(dashapefc, axes = c(1,2) , zoom = 1, chull = FALSE) %>% layer_points(cex = 1) %>% layer_morphospace_LDA(position = "range")
+
+## Proximal dorsal preparation
+table(databasedata$Proximal.dorsal.preparation) # priors
+
+dashapefc <- LDA(efashape, ~Proximal.dorsal.preparation, prior = c(42,12)/nrow(databasedata), cv = TRUE) # Fourier coefficient (raw data)
+dashapefc$CV.correct
+dashapefc$CV.ce
+
+plot_LDA(dashapefc, axes = c(1,2) , zoom = 2, chull = FALSE) %>% layer_points(cex = 1) %>% layer_morphospace_LDA(position = "range")
+
+dashape95 <- LDA(pcashape, ~Proximal.dorsal.preparation, prior = c(42,12)/nrow(databasedata), cv = TRUE, retain = 0.95) # 95% cum var PC scores
+dashape95$CV.correct
+dashape95$CV.ce
+
+plot_LDA(dashapefc, axes = c(1,2) , zoom = 1, chull = FALSE) %>% layer_points(cex = 1) %>% layer_morphospace_LDA(position = "range")
+
+## Ridges and Nodes
+table(databasedata$Ridges.and.Nodes) # priors
+
+dashapefc <- LDA(efashape, ~Ridges.and.Nodes, prior = c(13, 1, 6, 11, 1, 12, 2, 1, 7)/nrow(databasedata), cv = TRUE) # Fourier coefficient (raw data)
+dashapefc$CV.correct
+dashapefc$CV.ce
+
+plot_LDA(dashapefc, axes = c(1,2) , zoom = 2, chull = FALSE) %>% layer_points(cex = 1) %>% layer_morphospace_LDA(position = "range")
+
+dashape95 <- LDA(pcashape, ~Ridges.and.Nodes, prior = c(13, 1, 6, 11, 1, 12, 2, 1, 7)/nrow(databasedata), cv = TRUE, retain = 0.95) # 95% cum var PC scores
+dashape95$CV.correct
+dashape95$CV.ce
+
+plot_LDA(dashapefc, axes = c(1,2) , zoom = 1, chull = FALSE) %>% layer_points(cex = 1) %>% layer_morphospace_LDA(position = "range")
+
+## Dorsal scar pattern
+table(databasedata$Dorsal.scar.pattern) # priors
+
+dashapefc <- LDA(efashape, ~Dorsal.scar.pattern, prior = c(1, 13, 25, 1, 1, 3, 1, 6, 3)/nrow(databasedata), cv = TRUE) # Fourier coefficient (raw data)
+dashapefc$CV.correct
+dashapefc$CV.ce
+
+plot_LDA(dashapefc, axes = c(1,2) , zoom = 2, chull = FALSE) %>% layer_points(cex = 1) %>% layer_morphospace_LDA(position = "range")
+
+dashape95 <- LDA(pcashape, ~Dorsal.scar.pattern, prior = c(1, 13, 25, 1, 1, 3, 1, 6, 3)/nrow(databasedata), cv = TRUE, retain = 0.95) # 95% cum var PC scores
+dashape95$CV.correct
+dashape95$CV.ce
+
+plot_LDA(dashapefc, axes = c(1,2) , zoom = 1, chull = FALSE) %>% layer_points(cex = 1) %>% layer_morphospace_LDA(position = "range")
+
+## Angle
+table(databasedata$Angle) # priors
+
+dashapefc <- LDA(efashape, ~Angle, prior = c(4,5,20,1,24)/nrow(databasedata), cv = TRUE) # Fourier coefficient (raw data)
+dashapefc$CV.correct
+dashapefc$CV.ce
+
+plot_LDA(dashapefc, axes = c(1,2) , zoom = 2, chull = FALSE) %>% layer_points(cex = 1) %>% layer_morphospace_LDA(position = "range")
+
+dashape95 <- LDA(pcashape, ~Angle, prior = c(4,5,20,1,24)/nrow(databasedata), cv = TRUE, retain = 0.95) # 95% cum var PC scores
+dashape95$CV.correct
+dashape95$CV.ce
+
+plot_LDA(dashapefc, axes = c(1,2) , zoom = 1, chull = FALSE) %>% layer_points(cex = 1) %>% layer_morphospace_LDA(position = "range")
+
 #### Regression of shape against time #### 
 databasedata$Relative.stratigraphy <- as.numeric(databasedata$Relative.stratigraphy) # turn into numeric
 
+# PC1 
 ggplot(databasedata, aes(PC1, Relative.stratigraphy)) + 
   geom_smooth(method = lm, col = "red", se = FALSE) + 
   geom_point(size = 2, pch = 16, alpha = 0.4) + 
@@ -380,6 +498,7 @@ summary(lmPC1)
 lmPC1 <- loess(abs(PC1) ~Relative.stratigraphy, data = databasedata)
 summary(lmPC1)
 
+# PC2
 ggplot(databasedata, aes(PC2, Relative.stratigraphy)) + 
   geom_point(size = 2, pch = 16, alpha = 0.4) + 
   geom_smooth(method = lm, se = FALSE) + 
@@ -390,6 +509,7 @@ cor.test(databasedata$PC2, databasedata$Relative.stratigraphy)
 lmPC2 <- lm(PC2 ~Relative.stratigraphy, data = databasedata)
 summary(lmPC2)
 
+# PC3
 ggplot(databasedata, aes(PC3, Relative.stratigraphy)) + 
   geom_point(size = 2, pch = 16, alpha = 0.4) + 
   geom_smooth(method = lm, se = FALSE) + 
@@ -400,7 +520,7 @@ cor.test(databasedata$PC3, databasedata$Relative.stratigraphy)
 lmPC3 <- lm(PC3 ~Relative.stratigraphy, data = databasedata)
 summary(lmPC3)
 
-#### MANOVA and ANOVA on PCs ####
+#### MANOVA and ANOVA on raw data and PCs ####
 
 ## Member
 efashape %>% MANOVA(~Member)
@@ -423,59 +543,51 @@ efashape %>% MANOVA(~Raw.materials)
 pcashape %>% MANOVA(~Raw.materials, retain = 0.95)
 pcashape %>% MANOVA(~Raw.materials, retain = 0.99)
 
-summary(aov(PC1~Raw.materials, databasedata))
-summary(aov(PC2~Raw.materials, databasedata))
-summary(aov(PC3~Raw.materials, databasedata))
-
-res <- aov(PC1~Raw.materials, databasedata)
-TukeyHSD(res)
-
-res <- aov(PC2~Raw.materials, databasedata)
-TukeyHSD(res)
-
-res <- aov(PC3~Raw.materials, databasedata)
-TukeyHSD(res)
-
 ## Reduction method
 efashape %>% MANOVA(~Knapping.modality)
 pcashape %>% MANOVA(~Knapping.modality, retain = 0.95)
 pcashape %>% MANOVA(~Knapping.modality, retain = 0.99)
 
-res <- aov(PC1~Knapping.modality, databasedata)
-TukeyHSD(res)
-
+summary(aov(PC1~Knapping.modality, databasedata))
 summary(aov(PC2~Knapping.modality, databasedata))
+summary(aov(PC3~Knapping.modality, databasedata))
 
-res <- aov(PC3~Knapping.modality, databasedata)
+res <- aov(PC3~Knapping.modality, databasedata) ## extra Tukey HSD as is significant 
 TukeyHSD(res)
 
 ## Number of scars
 efashape %>% MANOVA(~Number.of.scars)
 pcashape %>% MANOVA(~Number.of.scars, retain = 0.95)
 
-#### Cluster analyses #### 
+## Tip orientation
+efashape %>% MANOVA(~Orientation.of.the.tip)
+pcashape %>% MANOVA(~Orientation.of.the.tip, retain = 0.95)
 
-## Member
-CLUST(pcashape, ~Member, dist_method = "euclidean", type = "horizontal", cex = 0.6, hclust_method = "complete", palette=pal_manual(c("indianred3", "forestgreen", "royalblue2")))
-CLUST(pcashape, ~New.strat, dist_method = "euclidean", type = "horizontal", cex = 0.6, hclust_method = "complete", palette = col_summer2)
-CLUST(pcashape, ~Raw.materials, dist_method = "euclidean", type = "horizontal", cex = 0.6, hclust_method = "complete", palette = col_summer2)
-CLUST(pcashape, ~Knapping.modality, dist_method = "euclidean", type = "horizontal", cex = 0.6, hclust_method = "complete", palette = col_summer2)
-CLUST(pcashape, ~Number.of.scars, dist_method = "euclidean", type = "horizontal", cex = 0.6, hclust_method = "complete", palette = col_summer2)
+res <- aov(PC1~Orientation.of.the.tip, databasedata) ## Tukey HSD
+TukeyHSD(res)
 
+res <- aov(PC2~Orientation.of.the.tip, databasedata) ## Tukey HSD
+TukeyHSD(res)
 
+res <- aov(PC3~Orientation.of.the.tip, databasedata) ## Tukey HSD
+TukeyHSD(res)
 
-#### Constructing mean shapes ####
-## Member
-meanshape <- MSHAPES(efashape, ~Member)
-plot_MSHAPES(meanshape, size = 1, palette=pal_manual(c( "blue", "forestgreen", "red")))
+## Proximal dorsal preparation
+efashape %>% MANOVA(~Proximal.dorsal.preparation)
+pcashape %>% MANOVA(~Proximal.dorsal.preparation, retain = 0.95)
 
-## Relative stratigraphy
-meanshape <- MSHAPES(efashape, ~Relative.stratigraphy)
-plot_MSHAPES(meanshape, size = 0.75)
+## Ridges and Nodes
+efashape %>% MANOVA(~Ridges.and.Nodes)
+pcashape %>% MANOVA(~Ridges.and.Nodes, retain = 0.95)
 
-## Raw material
-meanshape <- MSHAPES(efashape, ~Raw.materials)
-plot_MSHAPES(meanshape, size = 0.75)
+## Dorsal scar pattern
+efashape %>% MANOVA(~Dorsal.scar.pattern)
+pcashape %>% MANOVA(~Dorsal.scar.pattern, retain = 0.95)
+
+## Angle
+efashape %>% MANOVA(~Angle)
+pcashape %>% MANOVA(~Angle, retain = 0.95)
+
 
 #### Test effect of tip breakage on results ####
 complete_outlines <- Momocs:: filter(BC_outlines, Tip.damage=="N")
@@ -483,115 +595,54 @@ complete_outlines <- Momocs:: filter(BC_outlines, Tip.damage=="N")
 efashape2 <- efourier(complete_outlines, nb.h = 9, norm = FALSE)
 pcashape2 <- PCA(efashape2)
 
-scree_plot(pcashape2, nax =1:10) # PC1-4 gives over 95% of cum variance in the data, PC1 = 77% of variance
-
 gg <- PCcontrib(pcashape2, nax = 1:4)
-gg$gg + 
+p1 <- scree_plot(pcashape2, nax =1:10) # PC1-4 gives over 95% of cum variance in the data, PC1 = 77% of variance
+p1 <- p1 + theme_bw() 
+p2 <- gg$gg + 
   geom_polygon(fill="slategrey", col="black") + 
   ggtitle("Shapes along PC1-3") # PC1 = asymmetry with base heavy, PC2 = wide to elongated, PC3 - wide to elongated with base heavy
+ggarrange(p1, p2, ncol =2)
 
-## Member
-boxplot(pcashape2, ~Member, nax = 1:4)  #  No difference in mean along PC1 between the two post-HP members, 3BS is different 
+### MANOVA
 
-plot.new()
-plot_PCA(pcashape2, axes = c(1,2), ~ Member, morphospace_position = "range_axes", zoom = 1, chull = TRUE, palette = col_summer) %>% layer_points(cex = 1.2, pch = 20) 
-plot_PCA(pcashape2, axes = c(1,2), ~ Member, morphospace_position = "range", zoom = 1, chull = FALSE, palette = col_summer) %>% layer_points(cex = 1.2, pch = 20) %>% layer_ellipses(conf = 0.95)
-
-plot_PCA(pcashape2, axes = c(2,3), ~ Member, morphospace_position = "range_axes", zoom = 1, chull = TRUE, legend = T, palette = col_summer) %>% layer_points(cex = 1.2, pch = 20) 
-plot_PCA(pcashape2, axes = c(2,3), ~ Member, morphospace_position = "range", zoom = 1, chull = FALSE, legend = T, palette = col_summer) %>% layer_points(cex = 1.2, pch = 20) %>% layer_ellipses(conf = 0.95)
-
-plot_PCA(pcashape2, axes = c(1,3), ~ Member, morphospace_position = "range_axes", zoom = 1, chull = TRUE, legend = T, palette = col_summer) %>% layer_points(cex = 1.2, pch = 20) 
-plot_PCA(pcashape2, axes = c(1,3), ~ Member, morphospace_position = "range", zoom = 1, chull = FALSE, legend = T, palette = col_summer) %>% layer_points(cex = 1.2, pch = 20) %>% layer_ellipses(conf = 0.95)
-
-## Relative stratigraphy
-boxplot(pcashape2, ~ Relative.stratigraphy, nax = 1:4, lex.order = FALSE)
-
-plot_PCA(pcashape2, axes = c(1,2), ~ Relative.stratigraphy, morphospace_position = "range_axes", zoom = 1, chull = FALSE, legend = T) %>% layer_points(cex = 1) %>% layer_ellipses(conf = 0.95)
-plot_PCA(pcashape2, axes = c(1,2), ~ Relative.stratigraphy, morphospace_position = "range", zoom = 1, chull = FALSE, legend = T) %>% layer_points(cex = 1) %>% layer_ellipses(conf = 0.95)
-
-plot_PCA(pcashape2, axes = c(2,3), ~ Relative.stratigraphy, morphospace_position = "range_axes", zoom = 1, chull = FALSE, legend = T) %>% layer_points(cex = 1) %>% layer_ellipses(conf = 0.95)
-plot_PCA(pcashape2, axes = c(2,3), ~ Relative.stratigraphy, morphospace_position = "range", zoom = 1, chull = FALSE, legend = T) %>% layer_points(cex = 1) %>% layer_ellipses(conf = 0.95)
-
-plot_PCA(pcashape2, axes = c(1,3), ~ Relative.stratigraphy, morphospace_position = "range_axes", zoom = 1, chull = FALSE, legend = T) %>% layer_points(cex = 1) %>% layer_ellipses(conf = 0.95)
-plot_PCA(pcashape2, axes = c(1,3), ~ Relative.stratigraphy, morphospace_position = "range", zoom = 1, chull = FALSE, legend = T) %>% layer_points(cex = 1) %>% layer_ellipses(conf = 0.95)
-
-## Raw materials
-boxplot(pcashape2, ~Raw.materials, nax = 1:5)
-
-plot_PCA(pcashape2, axes = c(1,2), ~ Raw.materials, morphospace_position = "range_axes", zoom = 1, chull = FALSE, legend = T) %>% layer_points(cex = 1) %>% layer_ellipses(conf = 0.95)
-plot_PCA(pcashape2, axes = c(1,2), ~ Raw.materials, morphospace_position = "range", zoom = 1, chull = FALSE, legend = T) %>% layer_points(cex = 1) %>% layer_ellipses(conf = 0.95)
-
-plot_PCA(pcashape2, axes = c(2,3), ~ Raw.materials, morphospace_position = "range_axes", zoom = 1, chull = FALSE, legend = T) %>% layer_points(cex = 1) %>% layer_ellipses(conf = 0.95)
-plot_PCA(pcashape2, axes = c(2,3), ~ Raw.materials, morphospace_position = "range", zoom = 1, chull = FALSE, legend = T) %>% layer_points(cex = 1) %>% layer_ellipses(conf = 0.95)
-
-plot_PCA(pcashape2, axes = c(1,3), ~ Raw.materials, morphospace_position = "range_axes", zoom = 1, chull = FALSE, legend = T) %>% layer_points(cex = 1) %>% layer_ellipses(conf = 0.95)
-plot_PCA(pcashape2, axes = c(1,3), ~ Raw.materials, morphospace_position = "range", zoom = 1, chull = FALSE, legend = T) %>% layer_points(cex = 1) %>% layer_ellipses(conf = 0.95)
-
-### Discriminant analysis 
-
-## Member
-dashapefc <- LDA(efashape2, ~Member) # Fourier coefficient (raw data)
-dashapefc$CV.correct
-dashapefc$CV.ce
-
-plot_LDA(dashapefc, axes = c(1,2) , zoom = 2, chull = FALSE) %>% layer_points(cex = 1) %>% layer_morphospace_LDA(position = "range")
-
-dashape95 <- LDA(pcashape2, ~Member, retain = 0.95) # 95% cum var PC scores
-dashape95$CV.correct
-dashape95$CV.ce
-
-dashape99 <- LDA(pcashape2, ~Member, retain = 0.99) # 99% cum var PC scores
-dashape99$CV.correct
-dashape99$CV.ce
-
-## Relative stratigraphy
-dashapefc <- LDA(efashape2, ~Relative.stratigraphy) # Fourier coefficient (raw data)
-dashapefc$CV.correct
-dashapefc$CV.ce
-
-plot_LDA(dashapefc, axes = c(1,2) , zoom = 2, chull = FALSE) %>% layer_points(cex = 1) %>% layer_morphospace_LDA(position = "range")
-
-dashape95 <- LDA(pcashape2, ~Relative.stratigraphy, retain = 0.95) # 95% cum var PC scores
-dashape95$CV.correct
-dashape95$CV.ce
-
-dashape99 <- LDA(pcashape2, ~Relative.stratigraphy, retain = 0.99) # 99% cum var PC scores
-dashape99$CV.correct
-dashape99$CV.ce
-
-## Raw material
-dashapefc <- LDA(efashape2, ~Raw.materials) # Fourier coefficient (raw data)
-dashapefc$CV.correct
-dashapefc$CV.ce
-
-plot_LDA(dashapefc, axes = c(1,2) , zoom = 2, chull = FALSE) %>% layer_points(cex = 1) %>% layer_morphospace_LDA(position = "range")
-
-dashape95 <- LDA(pcashape2, ~Raw.materials, retain = 0.95) # 95% cum var PC scores
-dashape95$CV.correct
-dashape95$CV.ce
-
-dashape99 <- LDA(pcashape2, ~Raw.materials, retain = 0.99) # 99% cum var PC scores
-dashape99$CV.correct
-dashape99$CV.ce
-
-## MANOVA
-
-## Member
 efashape2 %>% MANOVA(~Member)
 pcashape2 %>% MANOVA(~Member, retain = 0.95)
-pcashape2 %>% MANOVA(~Member, retain = 0.99)
+
+## New stratigraphy
+efashape2 %>% MANOVA(~New.strat)
+pcashape2 %>% MANOVA(~New.strat, retain = 0.95)
 
 ## Raw material
 efashape2 %>% MANOVA(~Raw.materials)
 pcashape2 %>% MANOVA(~Raw.materials, retain = 0.95)
-pcashape2 %>% MANOVA(~Raw.materials, retain = 0.99)
 
 ## Reduction
 efashape2 %>% MANOVA(~Knapping.modality)
 pcashape2 %>% MANOVA(~Knapping.modality, retain = 0.95)
-pcashape2 %>% MANOVA(~Raw.materials, retain = 0.99)
 
+## Number of scars
+efashape2 %>% MANOVA(~Number.of.scars)
+pcashape2 %>% MANOVA(~Number.of.scars, retain = 0.95)
 
+## Orientation of tip
+efashape2 %>% MANOVA(~Orientation.of.the.tip)
+pcashape2 %>% MANOVA(~Orientation.of.the.tip, retain = 0.95)
+
+## Proximal dorsal preparation
+efashape2 %>% MANOVA(~Proximal.dorsal.preparation)
+pcashape2 %>% MANOVA(~Proximal.dorsal.preparation, retain = 0.95)
+
+## Ridges and nodes
+efashape2 %>% MANOVA(~Ridges.and.Nodes)
+pcashape2 %>% MANOVA(~Ridges.and.Nodes, retain = 0.95)
+
+## Dorsal scar pattern
+efashape2 %>% MANOVA(~Dorsal.scar.pattern)
+pcashape2 %>% MANOVA(~Dorsal.scar.pattern, retain = 0.95)
+
+## Angle
+efashape2 %>% MANOVA(~Angle)
+pcashape2 %>% MANOVA(~Angle, retain = 0.95)
 
 ############## COMPARISON W/SIBUDU ############
 # Full sample 
@@ -602,21 +653,21 @@ outlinedatasorted <- outlinedata %>% Momocs::arrange(Site, .by_group= TRUE)
 #outlinedata <- Momocs::slice(outlinedata, -outliers) # to remove outliers
 
 panel(outlinedatasorted, main = "Border Cave and Sibudu", names = TRUE, fac = outlinedatasorted$Site)
-outlinedata <- Momocs::slice(outlinedata, -outliers) # to remove outlier 
+outlinedata <- Momocs::slice(outlinedatasorted, -outliers) # to remove outlier 
 
 # EFA
 calibrate_harmonicpower_efourier(outlinedata, nb.h = 20, plot = FALSE) # 10 harmonics
 calibrate_reconstructions_efourier(outlinedata, range = 1:20)
-efashape <- efourier(outlinedata, nb.h = 10, norm = FALSE)
+efashape3 <- efourier(outlinedata, nb.h = 10, norm = FALSE)
 
 # PCA
-pcashape <- PCA(efashape) 
+pcashape3 <- PCA(efashape3) 
 
 # Size
 centroidsize <- as_tibble(coo_centsize(outlinedata))
 centroidsize <- rename(centroidsize, CS = "value")
 
-pcascores <- as_tibble(pcashape$x)
+pcascores <- as_tibble(pcashape3$x)
 databasedata <- cbind(outlinedata$fac, centroidsize, pcascores)
 
 # Add in member/site variable
@@ -627,49 +678,61 @@ newvar <- databasedata$SiteMember
 newvar[is.na(newvar)] <- "Sibudu"
 
 outlinedata$fac$SiteMember <- newvar 
-efashape <- efourier(outlinedata, nb.h = 10, norm = FALSE)
+efashape3 <- efourier(outlinedata, nb.h = 10, norm = FALSE)
 
-pcashape <- PCA(efashape) 
+pcashape3 <- PCA(efashape3) 
 
-# Plot 
-scree_plot(pcashape, nax =1:10) # PC1-3 gives over 95% of cum variance in the data, PC1 = 70% of variance
+# Plot PCA
+scree_plot(pcashape3, nax =1:10) # PC1-3 gives over 95% of cum variance in the data, PC1 = 70% of variance
 
-gg <- PCcontrib(pcashape, nax = 1:4)
+gg <- PCcontrib(pcashape3, nax = 1:4)
 gg$gg + 
   geom_polygon(fill="slategrey", col="black") + 
   ggtitle("Shapes along PC1-4") # PC1 = asymmetry with base heavy, PC2 = wide to elongated, PC3 - wide to elongated with base heavy
 
-
-pcascores <- as_tibble(pcashape$x)
+pcascores <- as_tibble(pcashape3$x)
 databasedata <- cbind(outlinedata$fac, centroidsize, pcascores)
 
-table(databasedata$Site) # priors
-
-dashapefc <- LDA(efashape, ~Site, prior = c(54, 88)/nrow(databasedata), cv = TRUE) # Fourier coefficient (raw data)
-dashapefc$CV.correct
-dashapefc$CV.ce
-
+# PCA - Sites 
 plot.new()
 par(mfrow = c(2,2))
-plot_PCA(pcashape, axes = c(1,2), ~ Site, morphospace_position = "range_axes", zoom = 1, chull = FALSE, palette=pal_manual(c("indianred3",  "deepskyblue2")), eigen = FALSE, legend = FALSE) %>% layer_points(cex = 1)  
-plot_PCA(pcashape, axes = c(1,3), ~ Site, morphospace_position = "range_axes", zoom = 1, chull = FALSE,palette=pal_manual(c("indianred3", "deepskyblue2")), eigen = FALSE, legend = FALSE) %>% layer_points(cex = 1)  
-plot_PCA(pcashape, axes = c(2,3), ~ Site, morphospace_position = "range_axes", zoom = 1, chull = FALSE, palette=pal_manual(c("indianred3", "deepskyblue2")), eigen = FALSE, legend = FALSE) %>% layer_points(cex = 1) 
+plot_PCA(pcashape3, axes = c(1,2), ~ Site, morphospace_position = "range_axes", zoom = 1, chull = FALSE, palette=pal_manual(c("indianred3",  "deepskyblue2")), eigen = FALSE, legend = FALSE) %>% layer_points(cex = 1)  
+plot_PCA(pcashape3, axes = c(1,3), ~ Site, morphospace_position = "range_axes", zoom = 1, chull = FALSE,palette=pal_manual(c("indianred3", "deepskyblue2")), eigen = FALSE, legend = FALSE) %>% layer_points(cex = 1)  
+plot_PCA(pcashape3, axes = c(2,3), ~ Site, morphospace_position = "range_axes", zoom = 1, chull = FALSE, palette=pal_manual(c("indianred3", "deepskyblue2")), eigen = FALSE, legend = FALSE) %>% layer_points(cex = 1) 
 vp.BottomRight <- viewport(height=unit(.5, "npc"), width=unit(0.5, "npc"), 
                            just=c("left","top"), 
                            y=0.5, x=0.5)
-p1 <- boxplot(pcashape, ~Site, nax = 1:3, col = c("indianred3", "royalblue2"))
+p1 <- boxplot(pcashape3, ~Site, nax = 1:3, col = c("indianred3", "royalblue2"))
 print(p1, vp = vp.BottomRight)  
 
+# PCA - Site/Members
+plot.new()
+par(mfrow = c(2,2))
+plot_PCA(pcashape3, axes = c(1,2), ~ SiteMember, morphospace_position = "range_axes", zoom = 1, chull = FALSE, palette=pal_manual(c("indianred3",  "deepskyblue2")), eigen = FALSE, legend = FALSE) %>% layer_points(cex = 1)  
+plot_PCA(pcashape3, axes = c(1,3), ~ SiteMember, morphospace_position = "range_axes", zoom = 1, chull = FALSE,palette=pal_manual(c("indianred3", "deepskyblue2")), eigen = FALSE, legend = FALSE) %>% layer_points(cex = 1)  
+plot_PCA(pcashape3, axes = c(2,3), ~ SiteMember, morphospace_position = "range_axes", zoom = 1, chull = FALSE, palette=pal_manual(c("indianred3", "deepskyblue2")), eigen = FALSE, legend = FALSE) %>% layer_points(cex = 1) 
+vp.BottomRight <- viewport(height=unit(.5, "npc"), width=unit(0.5, "npc"), 
+                           just=c("left","top"), 
+                           y=0.5, x=0.5)
+p1 <- boxplot(pcashape3, ~SiteMember, nax = 1:3)
+print(p1, vp = vp.BottomRight)  
 
-plot_LDA(dashapefc)
+# LDA - Sites
+table(databasedata3$Site) # priors
 
-dashapepc95 <- LDA(pcashape, ~Site, prior = c(54, 88)/nrow(databasedata), retain =0.95, cv = TRUE) # Fourier coefficient (raw data)
+dashapefc <- LDA(efashape3, ~Site, prior = c(54, 88)/nrow(databasedata), cv = TRUE) # Fourier coefficient (raw data)
+dashapefc$CV.correct
+dashapefc$CV.ce
+
+dashapepc95 <- LDA(pcashape3, ~Site, prior = c(54, 88)/nrow(databasedata), retain =0.95, cv = TRUE) # Fourier coefficient (raw data)
 dashapepc95$CV.correct
 dashapepc95$CV.ce
 
+# LDA - Site/Members
+
 table(databasedata$SiteMember) # priors
 
-dashapefc <- LDA(efashape, ~SiteMember, prior = c(36,16,2, 88)/nrow(databasedata), cv = TRUE) # Fourier coefficient (raw data)
+dashapefc <- LDA(efashape3, ~SiteMember, prior = c(36,16,2, 88)/nrow(databasedata), cv = TRUE) # Fourier coefficient (raw data)
 dashapefc$CV.correct
 dashapefc$CV.ce
 
@@ -680,7 +743,7 @@ dashapepc95 <- LDA(pcashape, ~SiteMember, prior = c(36,16,2, 88)/nrow(databaseda
 dashapepc95$CV.correct
 dashapepc95$CV.ce
 
-
+# MANOVA - Sites 
 efashape %>% MANOVA(~Site)
 pcashape %>% MANOVA(~Site, retain = 0.95)
 pcashape %>% MANOVA(~Site, retain = 0.99)
@@ -689,6 +752,16 @@ summary(aov(PC1~Site, databasedata))
 summary(aov(PC2~Site, databasedata))
 summary(aov(PC3~Site, databasedata))
 summary(aov(PC4~Site, databasedata))
+
+# MANOVA - Site/Members
+efashape %>% MANOVA(~SiteMember)
+pcashape %>% MANOVA(~SiteMember, retain = 0.95)
+pcashape %>% MANOVA(~SiteMember, retain = 0.99)
+
+summary(aov(PC1~SiteMember, databasedata))
+summary(aov(PC2~SiteMember, databasedata))
+summary(aov(PC3~SiteMember, databasedata))
+summary(aov(PC4~SiteMember, databasedata))
 
 res <- aov(PC1~SiteMember, databasedata)
 TukeyHSD(res)
@@ -699,22 +772,8 @@ TukeyHSD(res)
 res <- aov(PC3~SiteMember, databasedata)
 TukeyHSD(res)
 
-twoBS<- subset(databasedata, SiteMember == "2BS")
-twoWA <-  subset(databasedata, SiteMember == "2WA")
-Sib <- subset(databasedata, SiteMember == "Sibudu")
-
-t.test(twoBS$PC1, Sib$PC1)
-t.test(twoWA$PC1, Sib$PC1)
-
-t.test(twoBS$PC2, Sib$PC2)
-t.test(twoWA$PC2, Sib$PC2)
-
-t.test(twoBS$PC3, Sib$PC3)
-t.test(twoWA$PC3, Sib$PC3)
-
-
-## Seperate Sibudu 
-Sibudu_pca <- Momocs:: filter(pcashape, Site=="Sibudu")
+############## SIBUDU ONLY (BUT USING SAME PCS AS JOINED ANALYSIS) ############
+Sibudu_pca <- Momocs:: filter(pcashape3, Site=="Sibudu")
 Sibudu_pca$fac <- droplevels(Sibudu_pca$fac)
 
 ## Relative stratigraphy
@@ -765,7 +824,7 @@ cor.test(databasedata2$PC3, databasedata2$Relative.stratigraphy)
 lmPC3 <- lm(PC3 ~Relative.stratigraphy, data = databasedata2)
 summary(lmPC3)
 
-############## SIBUDU ONLY ############
+
 
 calibrate_harmonicpower_efourier(SC_outlines, nb.h = 20, plot = FALSE) # 11 harmonics
 calibrate_reconstructions_efourier(SC_outlines, range = 1:20)
