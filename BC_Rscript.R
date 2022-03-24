@@ -149,7 +149,7 @@ pcashape <- PCA(efashape)
 # Plot 
 
 plot.new()
-gg <- PCcontrib(BC_pcashape, nax = 1:3, plot = FALSE)
+gg <- PCcontrib(pcashape, nax = 1:3, plot = FALSE)
 gg$gg + 
   geom_polygon(fill="gray", col="black") 
 
