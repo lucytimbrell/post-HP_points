@@ -1,2 +1,2 @@
 # post-HP_points
-post-Howiesons Poort points project
+This is the repository for the geometric morphometric analysis in the manuscript "Technological and geometric morphometric analysis of ‘post-Howiesons Poort points’ from Border Cave, KwaZulu-Natal, South Africa", submitted to Quarternary Science Reviews in the Special Issue: “Early Homo sapiens behaviour and Ecology at Border Cave (KwaZulu-Natal, South Africa)”. For any queries please contact Lucy Timbrell (lucy.timbrell@liverpool.ac.uk)
